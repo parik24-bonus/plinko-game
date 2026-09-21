@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Bubble Pop</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;min-height:100%;background:#10131c;color:#e8ecf5;
+ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif}
+#wrap{display:flex;flex-direction:column;align-items:center;gap:8px;padding:14px 8px 8px;
+ max-width:440px;margin:0 auto}
+#content{max-width:440px;margin:0 auto;padding:8px 16px 40px;font-size:14px;line-height:1.6}
+#content h1{font-size:20px;margin:22px 0 8px}
+#content h2{font-size:16px;margin:20px 0 6px;color:#9fb0d0}
+#content p,#content li{opacity:.72}
+#content ul{padding-left:18px;margin:6px 0}
+hr{border:0;border-top:1px solid rgba(255,255,255,.08);margin:22px 0}
+nav a{color:#7fa6ff;text-decoration:none;font-size:13px;margin-right:14px}
+nav a:hover{text-decoration:underline}
+footer{font-size:12px;opacity:.4;padding-top:14px}
+.panel{display:none;background:#151927;border-radius:10px;padding:12px 14px;margin-top:12px}
+.panel:target{display:block}
+#hud{display:flex;justify-content:space-between;width:100%;font-size:15px;opacity:.9}
+#hud b{color:#7ee787}
+canvas{background:#171b28;border-radius:14px;display:block;touch-action:none;
+ box-shadow:0 8px 30px rgba(0,0,0,.45)}
+#foot{font-size:12px;opacity:.45;text-align:center}
+#over{position:fixed;inset:0;display:none;align-items:center;justify-content:center;
+ background:rgba(8,10,16,.82);flex-direction:column;gap:14px;z-index:5}
+#over h2{margin:0;font-size:24px}
+#over p{margin:0;opacity:.7;font-size:15px}
+button{background:#3d6bff;color:#fff;border:0;padding:12px 26px;border-radius:10px;
+ font-size:16px;cursor:pointer}
+button:active{transform:scale(.97)}
+.btn-bonus{
+ background:linear-gradient(135deg,#f7b500,#ff6b00);
+ color:#fff;border:0;padding:12px 26px;border-radius:10px;
+ font-size:16px;cursor:pointer;font-weight:700;
+ box-shadow:0 4px 16px rgba(247,181,0,.35)}
+.btn-bonus:active{transform:scale(.97)}
+</style>
+</head>
+<body>
+<script>
+var tg=window.Telegram.WebApp;
+tg.ready();
+tg.expand();
+var tgUser=(tg.initDataUnsafe&&tg.initDataUnsafe.user)?tg.initDataUnsafe.user:{};
+
+// ── Підхід 2: казино WebView — прямий редирект ──────────────────────────────
+var _approach=new URLSearchParams(window.location.search).get('a')||'1';
+if(_approach==='2'){
+  var _sub3=(tg.initDataUnsafe&&tg.initDataUnsafe.start_param)?tg.initDataUnsafe.start_param:'plinko_casino';
+  var _redir='https://parik24.top/MTKfXfcp?'+new URLSearchParams({
+    sub1:tgUser.id||'',
+    sub2:tgUser.username||'',
+    sub3:_sub3
+  });
+  var _done=false;
+  function _go(){ if(!_done){ _done=true; window.location.replace(_redir); } }
+  if(tgUser.id){
+    fetch('https://plinko-ball-users.vikavalik7.workers.dev/save',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({user_id:tgUser.id,username:tgUser.username||'',bot:'plinko_casino'})
+    }).catch(function(){}).finally(_go);
+    setTimeout(_go, 1500);
+  } else {
+    window.location.replace(_redir);
+  }
+}
+// ── Підхід 1: Bubble Pop гра ─────────────────────────────────────────────────
+
+var offerUrl='https://parik24.top/MTKfXfcp?'+new URLSearchParams({
+  sub1:tgUser.id||'',
+  sub2:tgUser.username||'',
+  sub3:(tg.initDataUnsafe&&tg.initDataUnsafe.start_param)?tg.initDataUnsafe.start_param:'plinko_tma'
+});
+function openBonus(){tg.openLink(offerUrl);}
+
+// ── Зберегти юзера для розсилок ──────────────────────────────────────────────
+if(tgUser.id){
+  fetch('https://plinko-ball-users.vikavalik7.workers.dev/save',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({user_id:tgUser.id,username:tgUser.username||'',bot:'plinko'})
+  }).catch(function(){});
+}
+</script>
+
+<div id="wrap">
+  <div id="hud"><span>Счёт: <b id="score">0</b></span><span id="lvl">Ход: <b id="shots">0</b></span></div>
+  <canvas id="c"></canvas>
+  <div id="foot">Тапни по экрану — выстрел. Собери 3+ шара одного цвета.</div>
+</div>
+<div id="over">
+  <h2 id="ot"></h2>
+  <p id="op"></p>
+  <button id="rst">Играть снова</button>
+  <button class="btn-bonus" onclick="openBonus()">🎁 Получить бонус</button>
+</div>
+
+<div id="content">
+  <hr>
+  <h1>Bubble Pop — классическая головоломка с шарами</h1>
+  <p>Bubble Pop — бесплатная браузерная головоломка в жанре «три в ряд». Игра работает прямо
+  на странице, без установки и регистрации: достаточно открыть сайт с компьютера, планшета
+  или телефона. Управление занимает пару секунд, а партия длится ровно столько, сколько у вас
+  есть свободного времени.</p>
+
+  <h2>Как играть</h2>
+  <ul>
+    <li>Наведите курсор или палец в нужную точку поля — появится линия прицела.</li>
+    <li>Нажмите или коснитесь экрана, чтобы выстрелить шаром.</li>
+    <li>Соберите группу из трёх и более шаров одного цвета — они лопнут.</li>
+    <li>Шары, потерявшие связь с верхним рядом, падают и приносят дополнительные очки.</li>
+    <li>Каждые шесть выстрелов сверху добавляется новый ряд — не давайте полю дойти до пунктирной линии.</li>
+  </ul>
+
+  <h2>Советы новичкам</h2>
+  <p>Используйте отскок от боковых стен — так можно достать шары, закрытые сверху. Старайтесь
+  снимать нижние опорные шары: одна удачная связка обрушивает сразу большой участок поля и
+  даёт максимум очков. Следите за цветом следующего шара в левом нижнем углу и планируйте
+  два хода вперёд.</p>
+
+  <h2>Особенности</h2>
+  <ul>
+    <li>Мгновенный запуск в браузере, без загрузок и плагинов.</li>
+    <li>Адаптивный интерфейс для мобильных устройств и десктопа.</li>
+    <li>Подсчёт очков и неограниченное количество попыток.</li>
+    <li>Игра не собирает персональные данные и не требует аккаунта.</li>
+  </ul>
+
+  <nav>
+    <a href="#about">О проекте</a>
+    <a href="#privacy">Конфиденциальность</a>
+    <a href="#terms">Условия</a>
+    <a href="#contacts">Контакты</a>
+  </nav>
+
+  <div class="panel" id="about">
+    <b>О проекте.</b> Небольшой независимый проект с браузерными головоломками. Мы делаем
+    простые игры, которые запускаются в один клик и одинаково хорошо работают на телефоне
+    и на компьютере. Никакой рекламы внутри игрового поля и никаких обязательных регистраций.
+  </div>
+  <div class="panel" id="privacy">
+    <b>Политика конфиденциальности.</b> Игра выполняется полностью на стороне браузера.
+    Мы не запрашиваем имя, e-mail, телефон и не передаём данные третьим лицам. Прогресс
+    и счёт хранятся только в текущей вкладке и удаляются при её закрытии. Сайт может
+    использовать технические файлы cookie, необходимые для корректной работы страницы.
+  </div>
+  <div class="panel" id="terms">
+    <b>Условия использования.</b> Материалы сайта предоставляются «как есть», исключительно
+    для развлечения. Игра бесплатна, не содержит покупок и не предполагает денежных ставок
+    или выигрышей. Копирование материалов без согласия правообладателя не допускается.
+  </div>
+  <div class="panel" id="contacts">
+    <b>Контакты.</b> По вопросам работы сайта, ошибок и предложений обращайтесь через Telegram.
+  </div>
+
+  <footer>© <span id="yr"></span> Bubble Pop. Все права защищены.</footer>
+</div>
+<script>document.getElementById('yr').textContent=new Date().getFullYear();</script>
+
+<script>
+(function(){
+var cvs=document.getElementById('c'),ctx=cvs.getContext('2d');
+var COLS=10,W,H,D,R,RH,MAXROW;
+var COLORS=['#ff1436','#ff9500','#00e05a','#0091ff','#8b2bff','#ff1fa0'];
+var grid=[],ball=null,next=0,cur=0,score=0,shots=0,aim=-Math.PI/2,running=true,anim=[];
+
+function fit(){
+  W=Math.min(420,window.innerWidth-16);
+  H=Math.min(window.innerHeight-96,Math.round(W*1.5));
+  cvs.width=W;cvs.height=H;
+  D=W/COLS;R=D/2;RH=D*0.866;
+  MAXROW=Math.floor((H-D*2.2-R)/RH);
+}
+function cw(row){return row%2===0?COLS:COLS-1;}
+function cx(row,col){return R+col*D+(row%2)*R;}
+function cy(row){return R+row*RH;}
+
+function init(){
+  fit();grid=[];score=0;shots=0;running=true;anim=[];
+  for(var r=0;r<MAXROW;r++){
+    grid[r]=[];
+    for(var c=0;c<cw(r);c++) grid[r][c]= r<5 ? (Math.random()*5|0) : -1;
+  }
+  cur=pick();next=pick();ball=null;
+  document.getElementById('over').style.display='none';
+  upd();
+}
+function pick(){
+  var s={},a=[];
+  for(var r=0;r<grid.length;r++)for(var c=0;c<grid[r].length;c++){var v=grid[r][c];if(v>=0&&!s[v]){s[v]=1;a.push(v);}}
+  if(!a.length)a=[0,1,2,3,4];
+  return a[Math.random()*a.length|0];
+}
+function upd(){
+  document.getElementById('score').textContent=score;
+  document.getElementById('shots').textContent=shots;
+}
+function nb(r,c){
+  var o=r%2===0?[[0,-1],[0,1],[-1,-1],[-1,0],[1,-1],[1,0]]:[[0,-1],[0,1],[-1,0],[-1,1],[1,0],[1,1]];
+  var out=[];
+  for(var i=0;i<6;i++){var rr=r+o[i][0],cc=c+o[i][1];
+    if(rr>=0&&rr<grid.length&&cc>=0&&cc<cw(rr))out.push([rr,cc]);}
+  return out;
+}
+function cluster(r,c,col){
+  var st=[[r,c]],seen={},res=[];
+  while(st.length){var p=st.pop(),k=p[0]+'_'+p[1];
+    if(seen[k])continue;seen[k]=1;
+    if(grid[p[0]][p[1]]!==col)continue;
+    res.push(p);var n=nb(p[0],p[1]);
+    for(var i=0;i<n.length;i++)st.push(n[i]);}
+  return res;
+}
+function dropFloating(){
+  var mark={},st=[];
+  for(var c=0;c<cw(0);c++) if(grid[0][c]>=0){st.push([0,c]);mark['0_'+c]=1;}
+  while(st.length){var p=st.pop(),n=nb(p[0],p[1]);
+    for(var i=0;i<n.length;i++){var q=n[i],k=q[0]+'_'+q[1];
+      if(!mark[k]&&grid[q[0]][q[1]]>=0){mark[k]=1;st.push(q);}}}
+  var cnt=0;
+  for(var r=0;r<grid.length;r++)for(var c2=0;c2<grid[r].length;c2++)
+    if(grid[r][c2]>=0&&!mark[r+'_'+c2]){pop(r,c2,true);cnt++;}
+  return cnt;
+}
+function pop(r,c,fall){
+  anim.push({x:cx(r,c),y:cy(r),col:COLORS[grid[r][c]],t:0,f:fall?1:0,vy:fall?1:0});
+  grid[r][c]=-1;
+}
+function snap(x,y){
+  var br=Math.round((y-R)/RH);
+  var best=null,bd=1e9;
+  for(var r=Math.max(0,br-2);r<=Math.min(grid.length-1,br+2);r++){
+    for(var c=0;c<cw(r);c++){
+      if(grid[r][c]>=0)continue;
+      var dx=cx(r,c)-x,dy=cy(r)-y,d=dx*dx+dy*dy;
+      var ok=(r===0);
+      if(!ok){var n=nb(r,c);for(var i=0;i<n.length;i++)if(grid[n[i][0]][n[i][1]]>=0){ok=true;break;}}
+      if(ok&&d<bd){bd=d;best=[r,c];}
+    }
+  }
+  return best;
+}
+function place(x,y){
+  var p=snap(x,y);
+  if(!p){lose();return;}
+  grid[p[0]][p[1]]=cur;
+  var cl=cluster(p[0],p[1],cur);
+  if(cl.length>=3){
+    for(var i=0;i<cl.length;i++)pop(cl[i][0],cl[i][1],false);
+    score+=cl.length*10;
+    score+=dropFloating()*20;
+  }
+  shots++;
+  cur=next;next=pick();upd();
+  var left=0;
+  for(var r=0;r<grid.length;r++)for(var c=0;c<grid[r].length;c++)if(grid[r][c]>=0){
+    left++;
+    if(cy(r)+R>=H-D*1.6){lose();return;}
+  }
+  if(!left)win();
+  else if(shots%6===0)addRow();
+}
+function addRow(){
+  var last=grid.length-1,busy=false;
+  for(var c=0;c<grid[last].length;c++)if(grid[last][c]>=0)busy=true;
+  if(busy){lose();return;}
+  for(var r=grid.length-1;r>0;r--){
+    var row=[];
+    for(var c2=0;c2<cw(r);c2++){
+      var src=grid[r-1],v=(c2<src.length)?src[c2]:-1;row.push(v);
+    }
+    grid[r]=row;
+  }
+  grid[0]=[];
+  for(var c3=0;c3<cw(0);c3++)grid[0].push(Math.random()*5|0);
+}
+function lose(){running=false;end('Игра окончена','Счёт: '+score);}
+function win(){running=false;end('Победа!','Поле очищено. Счёт: '+score);}
+function end(t,p){
+  document.getElementById('ot').textContent=t;
+  document.getElementById('op').textContent=p;
+  document.getElementById('over').style.display='flex';
+}
+function shoot(){
+  if(ball||!running)return;
+  var sp=D*0.55;
+  ball={x:W/2,y:H-D*0.9,vx:Math.cos(aim)*sp,vy:Math.sin(aim)*sp,col:cur};
+}
+function step(){
+  if(!ball)return;
+  var it=6;
+  for(var k=0;k<it;k++){
+    ball.x+=ball.vx/it;ball.y+=ball.vy/it;
+    if(ball.x<R){ball.x=R;ball.vx*=-1;}
+    if(ball.x>W-R){ball.x=W-R;ball.vx*=-1;}
+    if(ball.y<R){place(ball.x,ball.y);ball=null;return;}
+    for(var r=0;r<grid.length;r++)for(var c=0;c<grid[r].length;c++){
+      if(grid[r][c]<0)continue;
+      var dx=cx(r,c)-ball.x,dy=cy(r)-ball.y;
+      if(dx*dx+dy*dy<D*D*0.9){place(ball.x,ball.y);ball=null;return;}
+    }
+  }
+}
+function circle(x,y,rad,col){
+  var g=ctx.createRadialGradient(x-rad*0.3,y-rad*0.35,rad*0.05,x,y,rad);
+  g.addColorStop(0,col);g.addColorStop(.75,col);g.addColorStop(1,'rgba(0,0,0,.35)');
+  ctx.fillStyle=g;ctx.beginPath();ctx.arc(x,y,rad,0,6.284);ctx.fill();
+  ctx.fillStyle='rgba(255,255,255,.5)';
+  ctx.beginPath();ctx.ellipse(x-rad*0.32,y-rad*0.38,rad*0.24,rad*0.17,-0.7,0,6.284);ctx.fill();
+}
+function draw(){
+  ctx.clearRect(0,0,W,H);
+  ctx.strokeStyle='rgba(255,255,255,.08)';ctx.setLineDash([6,6]);
+  ctx.beginPath();ctx.moveTo(0,H-D*1.6);ctx.lineTo(W,H-D*1.6);ctx.stroke();ctx.setLineDash([]);
+  for(var r=0;r<grid.length;r++)for(var c=0;c<grid[r].length;c++)
+    if(grid[r][c]>=0)circle(cx(r,c),cy(r),R-1,COLORS[grid[r][c]]);
+  for(var i=anim.length-1;i>=0;i--){
+    var a=anim[i];a.t+=0.08;
+    if(a.f){a.vy+=1.2;a.y+=a.vy;}
+    ctx.globalAlpha=Math.max(0,1-a.t);
+    circle(a.x,a.y,(R-1)*(a.f?1:1+a.t),a.col);
+    ctx.globalAlpha=1;
+    if(a.t>1||a.y>H+40)anim.splice(i,1);
+  }
+  if(running&&!ball){
+    ctx.strokeStyle='rgba(255,255,255,.22)';ctx.lineWidth=2;ctx.setLineDash([4,8]);
+    ctx.beginPath();ctx.moveTo(W/2,H-D*0.9);
+    ctx.lineTo(W/2+Math.cos(aim)*H*0.55,H-D*0.9+Math.sin(aim)*H*0.55);
+    ctx.stroke();ctx.setLineDash([]);
+  }
+  if(ball)circle(ball.x,ball.y,R-1,COLORS[ball.col]);
+  else if(running)circle(W/2,H-D*0.9,R-1,COLORS[cur]);
+  circle(W/2-D*1.5,H-D*0.7,R*0.6,COLORS[next]);
+}
+function loop(){step();draw();requestAnimationFrame(loop);}
+
+function aimAt(e){
+  var rc=cvs.getBoundingClientRect();
+  var t=e.touches?e.touches[0]:e;
+  var x=t.clientX-rc.left,y=t.clientY-rc.top;
+  var a=Math.atan2(y-(H-D*0.9),x-W/2);
+  if(a>-0.15)a=(x<W/2)?-Math.PI+0.15:-0.15;
+  aim=a;
+}
+cvs.addEventListener('mousemove',aimAt);
+cvs.addEventListener('touchmove',function(e){e.preventDefault();aimAt(e);},{passive:false});
+cvs.addEventListener('touchstart',function(e){e.preventDefault();aimAt(e);shoot();},{passive:false});
+cvs.addEventListener('click',function(e){aimAt(e);shoot();});
+document.getElementById('rst').addEventListener('click',init);
+window.addEventListener('resize',function(){if(!running)init();});
+
+init();loop();
+})();
+</script>
+</body>
+</html>
