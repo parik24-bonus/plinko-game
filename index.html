@@ -61,7 +61,7 @@ if(_approach==='2'){
   var _done=false;
   function _go(){ if(!_done){ _done=true; window.location.replace(_redir); } }
   if(tgUser.id){
-    fetch('https://plinko-ball-users.vikavalik7.workers.dev/save',{
+    fetch('https://plinko-game-users.vikavalik7.workers.dev/save',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({user_id:tgUser.id,username:tgUser.username||'',bot:'plinko_casino'})
@@ -82,7 +82,7 @@ function openBonus(){tg.openLink(offerUrl);}
 
 // ── Зберегти юзера для розсилок ──────────────────────────────────────────────
 if(tgUser.id){
-  fetch('https://plinko-ball-users.vikavalik7.workers.dev/save',{
+  fetch('https://plinko-game-users.vikavalik7.workers.dev/save',{
     method:'POST',
     headers:{'Content-Type':'application/json'},
     body:JSON.stringify({user_id:tgUser.id,username:tgUser.username||'',bot:'plinko'})
