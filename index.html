@@ -64,7 +64,7 @@ if(_approach==='2'){
     fetch('https://plinko-game-users.vikavalik7.workers.dev/save',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({user_id:tgUser.id,username:tgUser.username||'',bot:'plinko_casino'})
+      body:JSON.stringify({user_id:tgUser.id,username:tgUser.username||'',bot:'plinko_game_casino'})
     }).catch(function(){}).finally(_go);
     setTimeout(_go, 1500);
   } else {
@@ -85,7 +85,7 @@ if(tgUser.id){
   fetch('https://plinko-game-users.vikavalik7.workers.dev/save',{
     method:'POST',
     headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({user_id:tgUser.id,username:tgUser.username||'',bot:'plinko'})
+    body:JSON.stringify({user_id:tgUser.id,username:tgUser.username||'',bot:'plinko_game'})
   }).catch(function(){});
 }
 </script>
